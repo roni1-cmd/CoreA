@@ -33,6 +33,12 @@ struct mutex {
     int owner;
 };
 
+struct task_info {
+    int id;
+    int active;
+    unsigned int eip;
+};
+
 void *mem_start = (void *)MEM_START;
 unsigned int mem_size = MEM_SIZE;
 volatile unsigned int ticks = 0;
@@ -143,6 +149,8 @@ extern int vfs_read(const char *name, char *buf, int size);
 extern int vfs_write(const char *name, const char *buf, int size);
 extern void vfs_list(const char *path, char *buf, int size);
 extern int vfs_delete(const char *name);
+extern int vfs_compress_buffer(char *buf, int len, char *out, int max_out);
+extern int vfs_decompress_buffer(char *buf, int len, char *out, int max_out);
 extern void init_net(void);
 extern int net_send_packet(unsigned char *data, int len);
 extern int net_receive_packet(unsigned char *buf, int size);
@@ -178,9 +186,18 @@ extern int p2p_add_peer(unsigned int ip, unsigned short port);
 extern int p2p_share_file(const char *filename, unsigned int ip, unsigned short port);
 extern int p2p_list_files(unsigned int ip, unsigned short port, char *buf, int size);
 extern int p2p_download_file(unsigned int ip, unsigned short port, const char *filename, char *buf, int size);
+extern int crypto_encrypt_buffer(char *buf, int len);
+extern int crypto_decrypt_buffer(char *buf, int len);
+extern int crypto_sign_buffer(char *buf, int len, char *signature);
+extern int crypto_verify_buffer(const char *buf, int len, const char *signature);
+extern void keymgmt_generate_key(char *name, unsigned char *key);
+extern int keymgmt_get_key(char *name, unsigned char *key);
+extern int keymgmt_authenticate(const char *password);
 extern void file_explorer_init(void);
 extern void file_explorer_run(void);
 extern void file_explorer_browse_p2p(unsigned int ip, unsigned short port);
+extern void taskmgr_init(void);
+extern void taskmgr_run(void);
 
 void init_tasks(void) {
     for (int i = 0; i < MAX_TASKS; i++) {
@@ -195,6 +212,22 @@ void init_tasks(void) {
     tasks[0].esp = 0x30000;
     tasks[0].state = 1;
     tasks[0].page_dir = clone_page_dir(0);
+}
+
+void get_tasks(struct task_info *task_list, int max_tasks) {
+    for (int i = 0; i < MAX_TASKS && i < max_tasks; i++) {
+        task_list[i].id = i;
+        task_list[i].active = tasks[i].state != 0;
+        task_list[i].eip = tasks[i].eip;
+    }
+}
+
+int kill_task(int id) {
+    if (id < 0 || id >= MAX_TASKS || id == current_task || tasks[id].state == 0)
+        return -1;
+    tasks[id].state = 0;
+    kfree(tasks[id].page_dir);
+    return 0;
 }
 
 void schedule(void) {
@@ -359,6 +392,7 @@ void do_syscall(void) {
             eax = tcp_connect(ebx, ecx);
             break;
         case 23: // sys_tcp_send
+            eax = tcp_send(eFlagged for review
             eax = tcp_send(ebx, (const unsigned char *)ecx, edx);
             break;
         case 24: // sys_tcp_receive
@@ -384,6 +418,41 @@ void do_syscall(void) {
             break;
         case 31: // sys_p2p_download_file
             eax = p2p_download_file(ebx, ecx, (const char *)edx, *(char **)(edx + 4), *(int *)(edx + 8));
+            break;
+        case 32: // sys_crypto_encrypt_buffer
+            eax = crypto_encrypt_buffer((char *)ebx, ecx);
+            break;
+        case 33: // sys_crypto_decrypt_buffer
+            eax = crypto_decrypt_buffer((char *)ebx, ecx);
+            break;
+        case 34: // sys_crypto_sign_buffer
+            eax = crypto_sign_buffer((char *)ebx, ecx, (char *)edx);
+            break;
+        case 35: // sys_crypto_verify_buffer
+            eax = crypto_verify_buffer((const char *)ebx, ecx, (const char *)edx);
+            break;
+        case 36: // sys_keymgmt_generate_key
+            keymgmt_generate_key((char *)ebx, (unsigned char *)ecx);
+            eax = 0;
+            break;
+        case 37: // sys_keymgmt_get_key
+            eax = keymgmt_get_key((char *)ebx, (unsigned char *)ecx);
+            break;
+        case 38: // sys_keymgmt_authenticate
+            eax = keymgmt_authenticate((const char *)ebx);
+            break;
+        case 39: // sys_vfs_compress_buffer
+            eax = vfs_compress_buffer((char *)ebx, ecx, (char *)edx, *(int *)(edx + 4));
+            break;
+        case 40: // sys_vfs_decompress_buffer
+            eax = vfs_decompress_buffer((char *)ebx, ecx, (char *)edx, *(int *)(edx + 4));
+            break;
+        case 41: // sys_get_tasks
+            get_tasks((struct task_info *)ebx, ecx);
+            eax = 0;
+            break;
+        case 42: // sys_kill_task
+            eax = kill_task(ebx);
             break;
         default:
             eax = -1;
