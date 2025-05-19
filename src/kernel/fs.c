@@ -27,7 +27,7 @@ void init_fs(void) {
         fs[i].sector = FS_SECTOR + 1 + i;
         fs[i].size = sector_buffer[i * 32 + 29] | (sector_buffer[i * 32 + 30] << 8);
         if (fs[i].used && (fs[i].size > MAX_CONTENT || fs[i].sector > 2880))
-            fs[i].used = 0; // Validate file entry
+            fs[i].used = 0;
     }
 }
 
@@ -96,7 +96,10 @@ int fs_write(const char *name, const char *buf, int size) {
 }
 
 void fs_list(char *buf, int size) {
-    if (!buf || size <= 0) return;
+    if (!buf || size <= 0) {
+        buf[0] = 0;
+        return;
+    }
     int pos = 0;
     for (int i = 0; i < MAX_FILES && pos < size - 1; i++) {
         if (fs[i].used) {
