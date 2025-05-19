@@ -36,6 +36,13 @@ extern void sys_netbrowser_init(void);
 extern void sys_netbrowser_run(void);
 extern void sys_taskmgr_init(void);
 extern void sys_taskmgr_run(void);
+extern void sys_texteditor_init(const char *name);
+extern void sys_texteditor_run(void);
+extern void sys_settings_init(void);
+extern void sys_settings_run(void);
+extern void sys_logger_init(void);
+extern void sys_logger_run(void);
+extern void sys_logger_add_event(const char *message);
 extern void sys_clipboard_copy(const char *data, int len);
 extern int sys_clipboard_paste(char *buf, int max_len);
 extern void sys_get_time(unsigned char *buf);
@@ -51,6 +58,8 @@ int tray_net_id = -1;
 int tray_cpu_id = -1;
 int tray_taskmgr_id = -1;
 int tray_netbrowser_id = -1;
+int tray_settings_id = -1;
+int tray_logger_id = -1;
 char selected_file[MAX_NAME];
 int selected_file_idx = -1;
 char status_message[MAX_STATUS];
@@ -66,29 +75,28 @@ void update_status(const char *msg) {
         status_message[i] = msg[i];
     status_message[MAX_STATUS - 1] = 0;
     sys_gui_create_text_field(win_id, 10, 100, 200, 15);
+    sys_logger_add_event(msg);
 }
 
 void update_tray(void) {
-    // Time
     unsigned char time_buf[32] = {0};
     sys_get_time(time_buf);
     tray_time_id = sys_gui_create_text_field(win_id, 10, 120, 60, 15);
-    // Network status (simplified)
     tray_net_id = sys_gui_create_text_field(win_id, 80, 120, 60, 15);
-    // CPU usage
     char stats[256] = {0};
     sys_profiler_get_stats(stats, 256);
     tray_cpu_id = sys_gui_create_text_field(win_id, 150, 120, 60, 15);
-    // Quick-launch buttons
     tray_taskmgr_id = sys_gui_create_button(win_id, 220, 120, 50, 15, "Tasks");
     tray_netbrowser_id = sys_gui_create_button(win_id, 280, 120, 50, 15, "Network");
+    tray_settings_id = sys_gui_create_button(win_id, 340, 120, 50, 15, "Settings");
+    tray_logger_id = sys_gui_create_button(win_id, 400, 120, 50, 15, "Logs");
 }
 
 void file_explorer_init(void) {
     for (int i = 0; i < MAX_FILES; i++)
         files[i].active = files[i].is_remote = files[i].is_encrypted = 0;
     selected_file[0] = status_message[0] = 0;
-    win_id = sys_gui_create_window(50, 50, 340, 140, 7); // Expanded for tray
+    win_id = sys_gui_create_window(50, 50, 460, 140, 7); // Expanded for tray
     if (win_id < 0) return;
 
     char file_list[256] = {0};
@@ -155,7 +163,7 @@ void file_explorer_run(void) {
                         selected_file_idx = i;
                         for (int j = 0; j < MAX_NAME; j++)
                             selected_file[j] = files[i].name[j];
-                        sys_gui_create_context_menu(win_id, event_x, event_y, "Open\0Delete\0Share\0Encrypt\0Compress\0SetKey\0Copy\0Paste\0");
+                        sys_gui_create_context_menu(win_id, event_x, event_y, "Open\0Delete\0Share\0Encrypt\0Compress\0SetKey\0Copy\0Paste\0Edit\0");
                         break;
                     }
                 }
@@ -172,6 +180,12 @@ void file_explorer_run(void) {
                 } else if (button_id == tray_netbrowser_id) {
                     sys_netbrowser_init();
                     sys_netbrowser_run();
+                } else if (button_id == tray_settings_id) {
+                    sys_settings_init();
+                    sys_settings_run();
+                } else if (button_id == tray_logger_id) {
+                    sys_logger_init();
+                    sys_logger_run();
                 } else {
                     for (int i = 0; i < MAX_FILES; i++) {
                         if (files[i].active && button_id == i) {
@@ -277,6 +291,10 @@ void file_explorer_run(void) {
                         } else {
                             update_status("Paste failed");
                         }
+                    } else if (item_id == 8) { // Edit
+                        sys_texteditor_init(selected_file);
+                        sys_texteditor_run();
+                        update_status("File opened in editor");
                     }
                 }
             } else if (event_type == 2) { // Key press
