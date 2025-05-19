@@ -4,7 +4,7 @@
 
 Corea is a lightweight, 32-bit x86 operating system designed for educational and experimental purposes. Built from scratch, it provides a minimal yet functional environment with a focus on modularity and extensibility. Corea includes a custom bootloader, kernel, shell, and a variety of features such as a graphical user interface (GUI), networking, and file system support.
 
-##Features
+## Features
 
 Bootloader: Custom bootloader for loading the kernel on x86 architecture.
 Kernel: Supports multitasking, virtual memory, threading, and dynamic linking.
@@ -32,7 +32,7 @@ Real-Time Clock (RTC): Time and date functionality.
 Performance Monitoring: Kernel profiler for tracking CPU usage and task statistics.
 Mutexes: Synchronization primitives for thread safety.
 
-##Requirements
+## Requirements
 Hardware:
 x86-compatible CPU (32-bit).
 At least 1 MB of RAM.
@@ -70,7 +70,7 @@ Using QEMU: Run the OS in QEMU with networking support:
 qemu-system-i386 -cdrom os.iso -netdev user,id=net0 -device rtl8139,netdev=net0
 On Real Hardware: Burn os.iso to a CD or write it to a floppy disk, then boot from the media on an x86 machine.
 
-##Usage
+## Usage
 
 Shell Commands:
 clear: Clear the screen.
@@ -91,12 +91,12 @@ profile: Display CPU usage statistics.
 
 
 
-##GUI Interaction:
+## GUI Interaction:
 Use the PS/2 mouse to move the cursor.
 Click buttons in windows (e.g., "OK" button in the sample GUI).
 Keyboard input is captured for text entry (future apps can extend this).
 
-##Directory Structure
+## Directory Structure
 
 src/boot/: Bootloader code (boot.asm).
 src/kernel/: Kernel and driver source files (e.g., kernel.c, gui.c, vfs.c).
@@ -104,7 +104,7 @@ src/linker/: Linker script (linker.ld).
 scripts/: Build script (build.sh).
 README.md: This file.
 
-##Contributing
+## Contributing
 
 Contributions are welcome! To contribute:
 Fork the repository.
@@ -116,10 +116,10 @@ Open a pull request.
 
 Please ensure code follows the existing style and includes error handling for reliability.
 
-##License
+## License
 
 Corea is released under the MIT License. See LICENSE file (to be added) for details.
 
-##Acknowledgments
+## Acknowledgments
 
 Built with tools like QEMU, GCC, and NASM.
