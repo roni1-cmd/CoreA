@@ -1,8 +1,8 @@
-# Corea Operating System
+# CoreA Operating System
 
 ## Overview
 
-Corea is a lightweight, 32-bit x86 operating system designed for educational and experimental purposes. Built from scratch, it provides a minimal yet functional environment with a focus on modularity and extensibility. Corea includes a custom bootloader, kernel, shell, and a variety of features such as a graphical user interface (GUI), networking, and file system support.
+CoreA is a lightweight, 32-bit x86 operating system designed for educational and experimental purposes. Built from scratch, it provides a minimal yet functional environment with a focus on modularity and extensibility. CoreA includes a custom bootloader, kernel, shell, and a variety of features such as a graphical user interface (GUI), networking, and file system support.
 
 ## Features
 
@@ -47,7 +47,7 @@ NASM assembler.
 GNU Make and other standard build tools.
 genisoimage for creating bootable ISO images.
 
-Building Corea
+Building CoreA
 
 Clone the Repository:
 git clone <repository-url>
@@ -65,7 +65,7 @@ chmod +x scripts/build.sh
 
 This generates os.iso in the project root.
 
-Running Corea
+Running CoreA
 Using QEMU: Run the OS in QEMU with networking support:
 qemu-system-i386 -cdrom os.iso -netdev user,id=net0 -device rtl8139,netdev=net0
 On Real Hardware: Burn os.iso to a CD or write it to a floppy disk, then boot from the media on an x86 machine.
@@ -118,7 +118,7 @@ Please ensure code follows the existing style and includes error handling for re
 
 ## License
 
-Corea is released under the MIT License. See LICENSE file (to be added) for details.
+CoreA is released under the MIT License. See LICENSE file (to be added) for details.
 
 ## Acknowledgments
 
