@@ -1,118 +1,149 @@
 #define MAX_FILES 16
 #define MAX_NAME 32
-#define MAX_MOUNTS 4
+#define MAX_CONTENT 256
+#define MAX_BLOCKS 64
 
-struct vfs_file {
+struct file {
     char name[MAX_NAME];
-    void *fs_data;
-    int (*read)(void *fs_data, char *buf, int size);
-    int (*write)(void *fs_data, const char *buf, int size);
-    int used;
+    char data[MAX_CONTENT];
+    int size;
+    int active;
+    int is_compressed;
 };
 
-struct vfs_mount {
-    char path[MAX_NAME];
-    int (*create)(const char *name);
-    int (*read)(const char *name, char *buf, int size);
-    int (*write)(const char *name, const char *buf, int size);
-    void (*list)(char *buf, int size);
-    int used;
+struct ramfs {
+    struct file files[MAX_FILES];
+    int block_map[MAX_BLOCKS];
 };
 
-struct vfs_mount mounts[MAX_MOUNTS];
-extern void *kmalloc(unsigned int size);
-extern void kfree(void *ptr);
-extern int ramfs_create(const char *name);
-extern int ramfs_read(const char *name, char *buf, int size);
-extern int ramfs_write(const char *name, const char *buf, int size);
-extern void ramfs_list(char *buf, int size);
-extern int fs_create(const char *name);
-extern int fs_read(const char *name, char *buf, int size);
-extern int fs_write(const char *name, const char *buf, int size);
-extern void fs_list(char *buf, int size);
+struct ramfs ramfs;
 
 void init_vfs(void) {
-    for (int i = 0; i < MAX_MOUNTS; i++)
-        mounts[i].used = 0;
-    mounts[0].path[0] = '/';
-    mounts[0].path[1] = 'r';
-    mounts[0].path[2] = 'a';
-    mounts[0].path[3] = 'm';
-    mounts[0].path[4] = 0;
-    mounts[0].create = ramfs_create;
-    mounts[0].read = ramfs_read;
-    mounts[0].write = ramfs_write;
-    mounts[0].list = ramfs_list;
-    mounts[0].used = 1;
-    mounts[1].path[0] = '/';
-    mounts[1].path[1] = 'd';
-    mounts[1].path[2] = 'i';
-    mounts[1].path[3] = 's';
-    mounts[1].path[4] = 'k';
-    mounts[1].path[5] = 0;
-    mounts[1].create = fs_create;
-    mounts[1].read = fs_read;
-    mounts[1].write = fs_write;
-    mounts[1].list = fs_list;
-    mounts[1].used = 1;
+    for (int i = 0; i < MAX_FILES; i++)
+        ramfs.files[i].active = ramfs.files[i].is_compressed = 0;
+    for (int i = 0; i < MAX_BLOCKS; i++)
+        ramfs.block_map[i] = 0;
 }
 
-int vfs_create(const char *path) {
-    if (!path || !path[0]) return -1;
-    for (int i = 0; i < MAX_MOUNTS; i++) {
-        if (mounts[i].used) {
-            int j;
-            for (j = 0; mounts[i].path[j] && path[j] && mounts[i].path[j] == path[j]; j++);
-            if (mounts[i].path[j] == 0 && (path[j] == '/' || path[j] == 0)) {
-                return mounts[i].create(path + j + (path[j] == '/' ? 1 : 0));
+int vfs_create(const char *name) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (!ramfs.files[i].active) {
+            for (int j = 0; j < MAX_NAME - 1 && name[j]; j++)
+                ramfs.files[i].name[j] = name[j];
+            ramfs.files[i].name[MAX_NAME - 1] = 0;
+            ramfs.files[i].size = 0;
+            ramfs.files[i].active = 1;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int vfs_read(const char *name, char *buf, int size) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (ramfs.files[i].active) {
+            int match = 1;
+            for (int j = 0; j < MAX_NAME && name[j]; j++) {
+                if (ramfs.files[i].name[j] != name[j]) {
+                    match = 0;
+                    break;
+                }
+            }
+            if (match) {
+                int len = ramfs.files[i].size < size ? ramfs.files[i].size : size;
+                for (int j = 0; j < len; j++)
+                    buf[j] = ramfs.files[i].data[j];
+                if (ramfs.files[i].is_compressed) {
+                    char decompressed[256];
+                    len = vfs_decompress_buffer(buf, len, decompressed, 256);
+                    for (int j = 0; j < len; j++)
+                        buf[j] = decompressed[j];
+                }
+                return len;
             }
         }
     }
     return -1;
 }
 
-int vfs_read(const char *path, char *buf, int size) {
-    if (!path || !buf || size <= 0) return -1;
-    for (int i = 0; i < MAX_MOUNTS; i++) {
-        if (mounts[i].used) {
-            int j;
-            for (j = 0; mounts[i].path[j] && path[j] && mounts[i].path[j] == path[j]; j++);
-            if (mounts[i].path[j] == 0 && (path[j] == '/' || path[j] == 0)) {
-                return mounts[i].read(path + j + (path[j] == '/' ? 1 : 0), buf, size);
+int vfs_write(const char *name, const char *buf, int size) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (ramfs.files[i].active) {
+            int match = 1;
+            for (int j = 0; j < MAX_NAME && name[j]; j++) {
+                if (ramfs.files[i].name[j] != name[j]) {
+                    match = 0;
+                    break;
+                }
+            }
+            if (match) {
+                int len = size < MAX_CONTENT ? size : MAX_CONTENT;
+                for (int j = 0; j < len; j++)
+                    ramfs.files[i].data[j] = buf[j];
+                ramfs.files[i].size = len;
+                ramfs.files[i].is_compressed = (name[0] == 'c');
+                return len;
             }
         }
     }
-    return -1;
-}
-
-int vfs_write(const char *path, const char *buf, int size) {
-    if (!path || !buf || size <= 0) return -1;
-    for (int i = 0; i < MAX_MOUNTS; i++) {
-        if (mounts[i].used) {
-            int j;
-            for (j = 0; mounts[i].path[j] && path[j] && mounts[i].path[j] == path[j]; j++);
-            if (mounts[i].path[j] == 0 && (path[j] == '/' || path[j] == 0)) {
-                return mounts[i].write(path + j + (path[j] == '/' ? 1 : 0), buf, size);
-            }
-        }
-    }
-    return -1;
+    return vfs_create(name) == 0 ? vfs_write(name, buf, size) : -1;
 }
 
 void vfs_list(const char *path, char *buf, int size) {
-    if (!path || !buf || size <= 0) {
-        buf[0] = 0;
-        return;
+    int pos = 0;
+    for (int i = 0; i < MAX_FILES && pos < size - 1; i++) {
+        if (ramfs.files[i].active) {
+            for (int j = 0; j < MAX_NAME && ramfs.files[i].name[j] && pos < size - 1; j++)
+                buf[pos++] = ramfs.files[i].name[j];
+            buf[pos++] = '\n';
+        }
     }
-    for (int i = 0; i < MAX_MOUNTS; i++) {
-        if (mounts[i].used) {
-            int j;
-            for (j = 0; mounts[i].path[j] && path[j] && mounts[i].path[j] == path[j]; j++);
-            if (mounts[i].path[j] == 0 && (path[j] == '/' || path[j] == 0)) {
-                mounts[i].list(buf, size);
-                return;
+    buf[pos] = 0;
+}
+
+int vfs_delete(const char *name) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (ramfs.files[i].active) {
+            int match = 1;
+            for (int j = 0; j < MAX_NAME && name[j]; j++) {
+                if (ramfs.files[i].name[j] != name[j]) {
+                    match = 0;
+                    break;
+                }
+            }
+            if (match) {
+                ramfs.files[i].active = 0;
+                return 0;
             }
         }
     }
-    buf[0] = 0;
+    return -1;
+}
+
+// Run-length encoding compression
+int vfs_compress_buffer(char *buf, int len, char *out, int max_out) {
+    if (len <= 0 || max_out < len) return -1;
+    int out_pos = 0;
+    for (int i = 0; i < len && out_pos < max_out - 2; ) {
+        int count = 1;
+        while (i + count < len && buf[i] == buf[i + count] && count < 255)
+            count++;
+        out[out_pos++] = buf[i];
+        out[out_pos++] = count;
+        i += count;
+    }
+    return out_pos;
+}
+
+// Run-length encoding decompression
+int vfs_decompress_buffer(char *buf, int len, char *out, int max_out) {
+    if (len <= 0 || len % 2 != 0) return -1;
+    int out_pos = 0;
+    for (int i = 0; i < len - 1 && out_pos < max_out; i += 2) {
+        char c = buf[i];
+        int count = (unsigned char)buf[i + 1];
+        for (int j = 0; j < count && out_pos < max_out; j++)
+            out[out_pos++] = c;
+    }
+    return out_pos;
 }
