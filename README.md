@@ -18,7 +18,7 @@ On-disk file system for persistent storage.
 GUI: VGA-based 320x200, 256-color graphical interface with:
 
 
-##Window manager supporting multiple windows.
+## Window manager supporting multiple windows.
 
 Mouse support via PS/2 driver.
 Text rendering with bitmap fonts.
