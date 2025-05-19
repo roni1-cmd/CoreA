@@ -18,6 +18,7 @@ void init_ramfs(void) {
 }
 
 int ramfs_create(const char *name) {
+    if (!name || !name[0]) return -1;
     for (int i = 0; i < MAX_FILES; i++) {
         if (!fs[i].used) {
             for (int j = 0; j < MAX_NAME - 1 && name[j]; j++)
@@ -32,6 +33,7 @@ int ramfs_create(const char *name) {
 }
 
 int ramfs_read(const char *name, char *buf, int size) {
+    if (!name || !buf || size <= 0) return -1;
     for (int i = 0; i < MAX_FILES; i++) {
         if (fs[i].used) {
             int j;
@@ -48,6 +50,7 @@ int ramfs_read(const char *name, char *buf, int size) {
 }
 
 int ramfs_write(const char *name, const char *buf, int size) {
+    if (!name || !buf || size <= 0 || size > MAX_CONTENT) return -1;
     for (int i = 0; i < MAX_FILES; i++) {
         if (fs[i].used) {
             int j;
@@ -64,6 +67,10 @@ int ramfs_write(const char *name, const char *buf, int size) {
 }
 
 void ramfs_list(char *buf, int size) {
+    if (!buf || size <= 0) {
+        buf[0] = 0;
+        return;
+    }
     int pos = 0;
     for (int i = 0; i < MAX_FILES && pos < size - 1; i++) {
         if (fs[i].used) {
