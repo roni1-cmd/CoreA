@@ -10,7 +10,16 @@ i686-elf-gcc -ffreestanding -c src/kernel/paging.c -o paging.o
 i686-elf-gcc -ffreestanding -c src/kernel/net.c -o net.o
 i686-elf-gcc -ffreestanding -c src/kernel/rtc.c -o rtc.o
 i686-elf-gcc -ffreestanding -c src/kernel/dynlink.c -o dynlink.o
-i686-elf-ld -T src/linker/linker.ld kernel.o shell.o ramfs.o task.o disk.o fs.o paging.o net.o rtc.o dynlink.o -o kernel.bin --oformat binary
+i686-elf-gcc -ffreestanding -c src/kernel/usb.c -o usb.o
+i686-elf-gcc -ffreestanding -c src/kernel/gui.c -o gui.o
+i686-elf-gcc -ffreestanding -c src/kernel/thread.c -o thread.o
+i686-elf-gcc -ffreestanding -c src/kernel/mouse.c -o mouse.o
+i686-elf-gcc -ffreestanding -c src/kernel/ipc.c -o ipc.o
+i686-elf-gcc -ffreestanding -c src/kernel/acpi.c -o acpi.o
+i686-elf-gcc -ffreestanding -c src/kernel/audio.c -o audio.o
+i686-elf-gcc -ffreestanding -c src/kernel/vfs.c -o vfs.o
+i686-elf-gcc -ffreestanding -c src/kernel/profiler.c -o profiler.o
+i686-elf-ld -T src/linker/linker.ld kernel.o shell.o ramfs.o task.o disk.o fs.o paging.o net.o rtc.o dynlink.o usb.o gui.o thread.o mouse.o ipc.o acpi.o audio.o vfs.o profiler.o -o kernel.bin --oformat binary
 cat boot.bin kernel.bin > os.bin
 dd if=/dev/zero of=disk.img bs=512 count=2880
 dd if=os.bin of=disk.img conv=notrunc
