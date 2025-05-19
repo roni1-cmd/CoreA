@@ -118,7 +118,7 @@ Please ensure code follows the existing style and includes error handling for re
 
 ## License
 
-CoreA is released under the MIT License. See LICENSE file (to be added) for details.
+CoreA is to be licensed. See LICENSE file (to be added) for details.
 
 ## Acknowledgments
 
