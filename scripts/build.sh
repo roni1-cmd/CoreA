@@ -19,7 +19,11 @@ i686-elf-gcc -ffreestanding -c src/kernel/acpi.c -o acpi.o
 i686-elf-gcc -ffreestanding -c src/kernel/audio.c -o audio.o
 i686-elf-gcc -ffreestanding -c src/kernel/vfs.c -o vfs.o
 i686-elf-gcc -ffreestanding -c src/kernel/profiler.c -o profiler.o
-i686-elf-ld -T src/linker/linker.ld kernel.o shell.o ramfs.o task.o disk.o fs.o paging.o net.o rtc.o dynlink.o usb.o gui.o thread.o mouse.o ipc.o acpi.o audio.o vfs.o profiler.o -o kernel.bin --oformat binary
+i686-elf-gcc -ffreestanding -c src/kernel/font.c -o font.o
+i686-elf-gcc -ffreestanding -c src/kernel/slab.c -o slab.o
+i686-elf-gcc -ffreestanding -c src/kernel/tcp.c -o tcp.o
+i686-elf-gcc -ffreestanding -c src/kernel/p2p.c -o p2p.o
+i686-elf-ld -T src/linker/linker.ld kernel.o shell.o ramfs.o task.o disk.o fs.o paging.o net.o rtc.o dynlink.o usb.o gui.o thread.o mouse.o ipc.o acpi.o audio.o vfs.o profiler.o font.o slab.o tcp.o p2p.o -o kernel.bin --oformat binary
 cat boot.bin kernel.bin > os.bin
 dd if=/dev/zero of=disk.img bs=512 count=2880
 dd if=os.bin of=disk.img conv=notrunc
