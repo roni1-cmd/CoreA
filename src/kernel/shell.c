@@ -48,8 +48,8 @@ int sys_write(const char *name, const char *buf, int size) {
     return ret;
 }
 
-void sys_list(const char *name, char *buf, int size) {
-    asm volatile("int $0x80" :: "a"(4), "b"(name), "c"(buf), "d"(size));
+void sys_list(const char *path, char *buf, int size) {
+    asm volatile("int $0x80" :: "a"(4), "b"(path), "c"(buf), "d"(size));
 }
 
 int sys_net_send(unsigned char *data, int len) {
@@ -112,6 +112,91 @@ void sys_profiler_stats(char *buf, int size) {
     asm volatile("int $0x80" :: "a"(18), "b"(buf), "c"(size));
 }
 
+int sys_gui_create_window(int x, int y, int w, int h, unsigned char color) {
+    int params[5] = {x, y, w, h, color};
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(19), "b"(params));
+    return ret;
+}
+
+int sys_gui_create_button(int win_id, int x, int y, int w, int h, const char *label) {
+    int params[6] = {win_id, x, y, w, h, (int)label};
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(20), "b"(params));
+    return ret;
+}
+
+int sys_gui_get_event(int *type, int *x, int *y, unsigned char *data) {
+    int params[4] = {(int)type, (int)x, (int)y, (int)data};
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(21), "b"(params));
+    return ret;
+}
+
+int sys_tcp_connect(unsigned short local_port, unsigned short remote_port) {
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(22), "b"(local_port), "c"(remote_port));
+    return ret;
+}
+
+int sys_tcp_send(int conn_id, const unsigned char *data, int len) {
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(23), "b"(conn_id), "c"(data), "d"(len));
+    return ret;
+}
+
+int sys_tcp_receive(int conn_id, unsigned char *buf, int size) {
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(24), "b"(conn_id), "c"(buf), "d"(size));
+    return ret;
+}
+
+int sys_p2p_add_peer(unsigned int ip, unsigned short port) {
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(25), "b"(ip), "c"(port));
+    return ret;
+}
+
+int sys_p2p_share_file(const char *filename, unsigned int ip, unsigned short port) {
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(26), "b"(filename), "c"(ip), "d"(port));
+    return ret;
+}
+
+int sys_gui_create_text_field(int win_id, int x, int y, int w, int h) {
+    int params[5] = {win_id, x, y, w, h};
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(27), "b"(params));
+    return ret;
+}
+
+int sys_gui_create_context_menu(int win_id, int x, int y, const char *items) {
+    int params[4] = {win_id, x, y, (int)items};
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(28), "b"(params));
+    return ret;
+}
+
+int sys_vfs_delete(const char *name) {
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(29), "b"(name));
+    return ret;
+}
+
+int sys_p2p_list_files(unsigned int ip, unsigned short port, char *buf, int size) {
+    int params[4] = {ip, port, (int)buf, size};
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(30), "b"(params));
+    return ret;
+}
+
+int sys_p2p_download_file(unsigned int ip, unsigned short port, const char *filename, char *buf, int size) {
+    int params[5] = {ip, port, (int)filename, (int)buf, size};
+    int ret;
+    asm volatile("int $0x80" : "=a"(ret) : "a"(31), "b"(params));
+    return ret;
+}
+
 void execute_command(char *input, int *row) {
     if (input[0] == 'c' && input[1] == 'l' && input[2] == 'e' && input[3] == 'a' && input[4] == 'r' && input[5] == 0) {
         vga_clear();
@@ -172,7 +257,13 @@ void execute_command(char *input, int *row) {
         (*row)++;
     } else if (input[0] == 'g' && input[1] == 'u' && input[2] == 'i' && input[3] == 0) {
         vga_print("Switching to GUI...", *row, 0);
-        init_gui();
+        int win_id = sys_gui_create_window(50, 50, 200, 100, 1);
+        if (win_id >= 0) {
+            sys_gui_create_button(win_id, 10, 20, 50, 20, "OK");
+            vga_print("GUI window created", *row, 0);
+        } else {
+            vga_print("GUI window creation failed", *row, 0);
+        }
         (*row)++;
     } else if (input[0] == 's' && input[1] == 'h' && input[2] == 'u' && input[3] == 't' && input[4] == 'd' && input[5] == 'o' && input[6] == 'w' && input[7] == 'n' && input[8] == 0) {
         vga_print("Shutting down...", *row, 0);
@@ -215,6 +306,84 @@ void execute_command(char *input, int *row) {
         char output[256] = {0};
         sys_profiler_stats(output, 256);
         vga_print(output, *row, 0);
+        (*row)++;
+    } else if (input[0] == 't' && input[1] == 'c' && input[2] == 'p' && input[3] == ' ') {
+        unsigned short local_port = 0, remote_port = 0;
+        for (int i = 4; input[i] && input[i] != ' '; i++)
+            local_port = local_port * 10 + (input[i] - '0');
+        for (int i = 4; input[i]; i++) {
+            if (input[i] == ' ') {
+                for (int j = i + 1; input[j]; j++)
+                    remote_port = remote_port * 10 + (input[j] - '0');
+                break;
+            }
+        }
+        if (sys_tcp_connect(local_port, remote_port) >= 0)
+            vga_print("TCP connection initiated", *row, 0);
+        else
+            vga_print("TCP connection failed", *row, 0);
+        (*row)++;
+    } else if (input[0] == 'p' && input[1] == '2' && input[2] == 'p' && input[3] == 'a' && input[4] == 'd' && input[5] == 'd' && input[6] == ' ') {
+        unsigned int ip = 0;
+        unsigned short port = 0;
+        for (int i = 7; input[i] && input[i] != ' '; i++)
+            ip = ip * 10 + (input[i] - '0');
+        for (int i = 7; input[i]; i++) {
+            if (input[i] == ' ') {
+                for (int j = i + 1; input[j]; j++)
+                    port = port * 10 + (input[j] - '0');
+                break;
+            }
+        }
+        if (sys_p2p_add_peer(ip, port) >= 0)
+            vga_print("P2P peer added", *row, 0);
+        else
+            vga_print("P2P peer add failed", *row, 0);
+        (*row)++;
+    } else if (input[0] == 'p' && input[1] == '2' && input[2] == 'p' && input[3] == 's' && input[4] == 'h' && input[5] == 'a' && input[6] == 'r' && input[7] == 'e' && input[8] == ' ') {
+        char *filename = input + 9;
+        unsigned int ip = 0;
+        unsigned short port = 0;
+        for (int i = 9; input[i]; i++) {
+            if (input[i] == ' ') {
+                input[i] = 0;
+                for (int j = i + 1; input[j] && input[j] != ' '; j++)
+                    ip = ip * 10 + (input[j] - '0');
+                for (int j = i + 1; input[j]; j++) {
+                    if (input[j] == ' ') {
+                        for (int k = j + 1; input[k]; k++)
+                            port = port * 10 + (input[k] - '0');
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        if (sys_p2p_share_file(filename, ip, port) >= 0)
+            vga_print("File shared via P2P", *row, 0);
+        else
+            vga_print("P2P file share failed", *row, 0);
+        (*row)++;
+    } else if (input[0] == 'e' && input[1] == 'x' && input[2] == 'p' && input[3] == 'l' && input[4] == 'o' && input[5] == 'r' && input[6] == 'e' && input[7] == 'r' && input[8] == 0) {
+        vga_print("Launching file explorer...", *row, 0);
+        file_explorer_init();
+        file_explorer_run();
+        (*row)++;
+    } else if (input[0] == 'p' && input[1] == '2' && input[2] == 'p' && input[3] == 'l' && input[4] == 'i' && input[5] == 's' && input[6] == 't' && input[7] == ' ') {
+        unsigned int ip = 0;
+        unsigned short port = 0;
+        for (int i = 8; input[i] && input[i] != ' '; i++)
+            ip = ip * 10 + (input[i] - '0');
+        for (int i = 8; input[i]; i++) {
+            if (input[i] == ' ') {
+                for (int j = i + 1; input[j]; j++)
+                    port = port * 10 + (input[j] - '0');
+                break;
+            }
+        }
+        file_explorer_init();
+        file_explorer_browse_p2p(ip, port);
+        file_explorer_run();
         (*row)++;
     } else {
         vga_print("Unknown command", *row, 0);
